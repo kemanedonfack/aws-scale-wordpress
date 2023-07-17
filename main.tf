@@ -1,30 +1,63 @@
-resource "aws_instance" "production_1_instance" {
-  ami                    = var.ami
-  instance_type          = var.instance_type
-  subnet_id              = aws_subnet.ec2_1_public_subnet.id
-  vpc_security_group_ids = [aws_security_group.production-instance-sg.id]
+resource "aws_launch_template" "instances_configuration" {
+  name_prefix            = "asg-instance"
+  image_id               = var.ami
   key_name               = aws_key_pair.aws_ec2_access_key.id
-  tags = {
-    Name = "production-instance"
+  instance_type          = var.instance_type
+  vpc_security_group_ids = [aws_security_group.production-instance-sg.id]
+
+  lifecycle {
+    create_before_destroy = true
   }
+
+  tags = {
+    Name = "asg-instance"
+  }
+
+}
+
+resource "aws_autoscaling_group" "asg" {
+  name                      = "asg"
+  min_size                  = 2
+  max_size                  = 4
+  desired_capacity          = 2
+  health_check_grace_period = 150
+  health_check_type         = "ELB"
+  vpc_zone_identifier       = [aws_subnet.ec2_1_public_subnet.id, aws_subnet.ec2_2_public_subnet.id]
+  launch_template {
+    id      = aws_launch_template.instances_configuration.id
+    version = "$Latest"
+  }
+
+  tag {
+    key                 = "Name"
+    value               = "production-instance"
+    propagate_at_launch = true
+  }
+
   depends_on = [
     aws_db_instance.rds_master,
   ]
 }
 
-resource "aws_instance" "production_2_instance" {
-  ami                    = var.ami
-  instance_type          = var.instance_type
-  subnet_id              = aws_subnet.ec2_2_public_subnet.id
-  vpc_security_group_ids = [aws_security_group.production-instance-sg.id]
-  key_name               = aws_key_pair.aws_ec2_access_key.id
-  tags = {
-    Name = "production-instance"
+resource "aws_autoscaling_policy" "avg_cpu_policy_greater" {
+  name                   = "avg-cpu-policy-greater"
+  policy_type            = "TargetTrackingScaling"
+  autoscaling_group_name = aws_autoscaling_group.asg.id
+  # CPU Utilization is above 50
+  target_tracking_configuration {
+    predefined_metric_specification {
+      predefined_metric_type = "ASGAverageCPUUtilization"
+    }
+    target_value = 50.0
   }
-  depends_on = [
-    aws_db_instance.rds_master,
-  ]
+
 }
+
+resource "aws_autoscaling_attachment" "asg_attachment" {
+  autoscaling_group_name = aws_autoscaling_group.asg.id
+  lb_target_group_arn    = aws_lb_target_group.alb_target_group.arn
+}
+
 
 resource "aws_db_subnet_group" "database_subnet" {
   name       = "db subnet"
@@ -53,20 +86,20 @@ resource "aws_db_instance" "rds_master" {
   }
 }
 
-resource "aws_db_instance" "rds_replica" {
-  replicate_source_db    = aws_db_instance.rds_master.identifier
-  instance_class         = "db.t3.micro"
-  identifier             = "replica-rds-instance"
-  allocated_storage      = 10
-  skip_final_snapshot    = true
-  multi_az               = false
-  availability_zone      = var.availability_zone[0]
-  vpc_security_group_ids = [aws_security_group.database-sg.id]
-  storage_encrypted      = true
+# resource "aws_db_instance" "rds_replica" {
+#   replicate_source_db    = aws_db_instance.rds_master.identifier
+#   instance_class         = "db.t3.micro"
+#   identifier             = "replica-rds-instance"
+#   allocated_storage      = 10
+#   skip_final_snapshot    = true
+#   multi_az               = false
+#   availability_zone      = var.availability_zone[0]
+#   vpc_security_group_ids = [aws_security_group.database-sg.id]
+#   storage_encrypted      = true
 
-  tags = {
-    Name = "my-rds-replica"
-  }
+#   tags = {
+#     Name = "my-rds-replica"
+#   }
 
-}
+# }
 

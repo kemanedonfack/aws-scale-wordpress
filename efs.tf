@@ -34,8 +34,7 @@ data "aws_instances" "production_instances" {
     "Name" = "production-instance"
   }
   depends_on = [
-    aws_instance.production_1_instance,
-    aws_instance.production_2_instance
+    aws_autoscaling_group.asg
   ]
 }
 
@@ -47,8 +46,7 @@ resource "null_resource" "install_script" {
     local_file.private_key,
     aws_efs_mount_target.efs_mount_target_1,
     aws_efs_mount_target.efs_mount_target_2,
-    aws_instance.production_1_instance,
-    aws_instance.production_2_instance
+    aws_autoscaling_group.asg
   ]
 
   connection {

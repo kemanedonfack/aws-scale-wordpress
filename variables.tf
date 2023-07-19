@@ -60,3 +60,13 @@ variable "mount_directory" {
   type    = string
   default = "/var/www/html"
 }
+
+variable "bucket_name" {
+  type    = string
+  default = "my-s3-wordpress-bucket"
+}
+
+variable "s3_origin_id" {
+  type    = string
+  default = "my-s3-wordpress-origin"
+}

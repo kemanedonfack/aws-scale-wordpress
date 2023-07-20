@@ -30,7 +30,7 @@ If you would like to delve deeper into the concept of Auto Scaling Group and its
 
 In the main.tf file, we need to remove our 2 aws_instance resources and add some new resources : aws_launch_template to define the configuration for our EC2 instances The template specifies the AMI, instance type, security groups, and other parameters. 
 
-```
+```terraform
 resource "aws_launch_template" "instances_configuration" {
   name_prefix            = "asg-instance"
   image_id               = var.ami
@@ -51,7 +51,7 @@ resource "aws_launch_template" "instances_configuration" {
 In the same main.tf file, we will create the Autoscaling Group (aws_autoscaling_group) resource. The ASG will be responsible for managing the number of instances and ensuring they match the desired capacity.
 
 `main.tf`
-```
+```terraform
 resource "aws_autoscaling_group" "asg" {
   name                      = "asg"
   min_size                  = 2
@@ -82,7 +82,7 @@ Next, we'll define an Auto Scaling policy that adjusts the number of instances b
 
 `main.tf`
 
-```
+```terraform
 resource "aws_autoscaling_policy" "avg_cpu_policy_greater" {
   name                   = "avg-cpu-policy-greater"
   policy_type            = "TargetTrackingScaling"
@@ -101,7 +101,7 @@ resource "aws_autoscaling_policy" "avg_cpu_policy_greater" {
 
 we modified the loadbalancer.tf to ensure that the ALB is properly configured to handle incoming HTTP traffic on port 80 and forward it to the instances registered with the ASG. The ALB acts as the entry point for client requests and distributes the traffic evenly across the instances in the ASG.
 
-```
+```terraform
 resource "aws_lb" "alb" {
   name               = "asg-alb"
   internal           = false
@@ -133,7 +133,7 @@ resource "aws_lb_target_group" "alb_target_group" {
 
 we have also created a security group for the ALB
 
-```
+```terraform
 resource "aws_security_group" "alb_sg" {
   name = "asg-alb-sg"
   ingress {
@@ -160,7 +160,7 @@ In this step, we make several modifications to the efs.tf file to ensure compati
 
 Firstly, we update the installation script to use the latest version of WordPress. This update is necessary because the WP Offload S3 Lite plugin, which we will be using, requires the latest version of WordPress. Here is the modified installation script:
 
-```
+```terraform
 resource "null_resource" "install_script" {
   count = 2
 
@@ -200,7 +200,7 @@ resource "null_resource" "install_script" {
 
 Additionally, we replace the reference to the previous EC2 instances with the Auto Scaling Group in the following data block:
 
-```
+```terraform
 data "aws_instances" "production_instances" {
   instance_tags = {
     "Name" = "production-instance"
@@ -217,7 +217,7 @@ In this section, we will create an S3 bucket to store the media files of the Wor
 
 Before starting add these two variables in your `variables.tf` file
 
-```
+```terraform
 variable "bucket_name" {
   type    = string
   default = "my-s3-wordpress-bucket"
@@ -233,8 +233,7 @@ variable "s3_origin_id" {
 
 First, we define an S3 bucket resource using Terraform to store the media files of the WordPress application:
 
-```
-terraform
+```terraform
 resource "aws_s3_bucket" "wordpress_files_bucket" {
   bucket = var.bucket_name
   tags   = {
@@ -249,8 +248,7 @@ In this resource, we specify the desired bucket name as the value of the variabl
 
 Next, we configure the CloudFront Origin Access Control (OAC) to manage access to the S3 bucket:
 
-```
-terraform
+```terraform
 locals {
   s3_origin_id = var.s3_origin_id
 }
@@ -322,8 +320,7 @@ Additionally, we specify the CloudFront distribution to use the default SSL/TLS 
 
 Finally, we create an S3 bucket policy to allow CloudFront access to the bucket:
 
-```
-terraform
+```terraform
 data "aws_iam_policy_document" "s3_policy" {
   statement {
     sid       = "AllowCloudFrontServicePrincipal"

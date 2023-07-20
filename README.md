@@ -37,6 +37,10 @@ resource "aws_launch_template" "instances_configuration" {
   key_name               = aws_key_pair.aws_ec2_access_key.id
   instance_type          = var.instance_type
   vpc_security_group_ids = [aws_security_group.production-instance-sg.id]
+  
+  iam_instance_profile {
+    name = aws_iam_instance_profile.ec2_wordpress_instance_profile.name
+  }
 
   lifecycle {
     create_before_destroy = true
@@ -45,6 +49,7 @@ resource "aws_launch_template" "instances_configuration" {
   tags = {
     Name = "asg-instance"
   }
+
 }
 ```
 
@@ -211,6 +216,92 @@ data "aws_instances" "production_instances" {
 }
 ```
 
+## Creating IAM Role for EC2 Instances
+
+In this section, we will create an IAM role to allow our WordPress application running on EC2 instances to securely access the S3 bucket. This IAM role will have the necessary permissions to perform actions such as `Get`, `List`, `GetObject`, and `PutObject` on all S3 resources.
+
+### Step 1: Creating IAM Policy for S3 Access
+
+First, we define an IAM policy resource to specify the permissions required for the EC2 instances to interact with the S3 bucket securely:
+
+```terraform
+resource "aws_iam_policy" "ec2_wordpress_policy" {
+  name   = "ec2_wordpress_policy"
+  policy = jsonencode({
+    Version   = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = [
+          "s3:Get*",
+          "s3:List*",
+          "s3-object-lambda:Get*",
+          "s3-object-lambda:List*",
+          "s3:GetObject",
+          "s3:PutObject"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+}
+```
+
+In this resource, we specify a policy document that allows the listed actions on all S3 resources (`Resource = "*"`) to enable read and write access. This policy includes permissions for `GetObject` to read objects and `PutObject` to upload objects, as well as more generalized `Get*` and `List*` actions for various S3 operations.
+
+### Step 2: Creating IAM Role for EC2 Instances
+
+Next, we create the IAM role that will be associated with the EC2 instances:
+
+```terraform
+resource "aws_iam_role" "ec2_wordpress_role" {
+  name               = "ec2_wordpress_role"
+  assume_role_policy = jsonencode({
+    Version   = "2012-10-17"
+    Statement = [
+      {
+        Action    = "sts:AssumeRole"
+        Effect    = "Allow"
+        Sid       = "RoleForEC2"
+        Principal = {
+          Service = "ec2.amazonaws.com"
+        }
+      },
+    ]
+  })
+}
+```
+
+In this resource, we define an IAM role named "ec2_wordpress_role" with the `assume_role_policy`, which grants permission to EC2 instances to assume this role. The policy allows EC2 instances to act as the role for the purpose of accessing other AWS resources.
+
+### Step 3: Attaching IAM Policy to IAM Role
+
+Now, we attach the previously created IAM policy to the IAM role:
+
+```terraform
+resource "aws_iam_role_policy_attachment" "ec2_wordpress_policy_attachment" {
+  policy_arn = aws_iam_policy.ec2_wordpress_policy.arn
+  role       = aws_iam_role.ec2_wordpress_role.name
+}
+```
+
+In this resource, we specify that the IAM policy with ARN `aws_iam_policy.ec2_wordpress_policy.arn` is attached to the IAM role `aws_iam_role.ec2_wordpress_role.name`. This attachment associates the permissions defined in the IAM policy with the IAM role.
+
+### Step 4: Creating IAM Instance Profile for EC2 Instances
+
+Finally, we create an IAM instance profile, which allows us to associate the IAM role with EC2 instances:
+
+```terraform
+resource "aws_iam_instance_profile" "ec2_wordpress_instance_profile" {
+  name = "ec2_wordpress_instance_profile"
+  role = aws_iam_role.ec2_wordpress_role.name
+}
+```
+
+In this resource, we specify an IAM instance profile named "ec2_wordpress_instance_profile" and associate it with the IAM role `aws_iam_role.ec2_wordpress_role.name`. The instance profile acts as a container for the IAM role and allows EC2 instances launched with this profile to use the permissions defined in the role.
+
+With these configurations, EC2 instances created within the Auto Scaling Group will have the necessary IAM role with the required permissions to securely access the S3 bucket for storing and retrieving media files used by the WordPress application.
+
 ## Creating S3 Bucket and CloudFront distribution
 
 In this section, we will create an S3 bucket to store the media files of the WordPress application and set up a CloudFront distribution to cache and serve these assets globally, providing improved performance and reduced latency for users.
@@ -316,7 +407,7 @@ We also set the `default_cache_behavior` to cache the allowed HTTP methods and d
 
 Additionally, we specify the CloudFront distribution to use the default SSL/TLS certificate provided by AWS (`cloudfront_default_certificate = true`) for secure connections.
 
-#### Step 4: Configuring S3 Bucket Policy for CloudFront Access
+### Step 4: Configuring S3 Bucket Policy for CloudFront Access
 
 Finally, we create an S3 bucket policy to allow CloudFront access to the bucket:
 

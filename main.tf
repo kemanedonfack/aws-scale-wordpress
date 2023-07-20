@@ -5,6 +5,10 @@ resource "aws_launch_template" "instances_configuration" {
   instance_type          = var.instance_type
   vpc_security_group_ids = [aws_security_group.production-instance-sg.id]
 
+  iam_instance_profile {
+    name = aws_iam_instance_profile.ec2_wordpress_instance_profile.name
+  }
+
   lifecycle {
     create_before_destroy = true
   }

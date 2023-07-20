@@ -213,10 +213,150 @@ data "aws_instances" "production_instances" {
 
 ## Creating S3 Bucket and CloudFront distribution
 
+In this section, we will create an S3 bucket to store the media files of the WordPress application and set up a CloudFront distribution to cache and serve these assets globally, providing improved performance and reduced latency for users.
+
+Before starting add these two variables in your `variables.tf` file
+
+```
+variable "bucket_name" {
+  type    = string
+  default = "my-s3-wordpress-bucket"
+}
+
+variable "s3_origin_id" {
+  type    = string
+  default = "my-s3-wordpress-origin"
+}
+```
+
+### Step 1: Creating the S3 Bucket
+
+First, we define an S3 bucket resource using Terraform to store the media files of the WordPress application:
+
+```
+terraform
+resource "aws_s3_bucket" "wordpress_files_bucket" {
+  bucket = var.bucket_name
+  tags   = {
+    name = "wordpress-bucket"
+  }
+}
+```
+
+In this resource, we specify the desired bucket name as the value of the variable `var.bucket_name`. We also add a tag to the bucket for better identification.
+
+### Step 2: Configuring CloudFront Origin Access Control
+
+Next, we configure the CloudFront Origin Access Control (OAC) to manage access to the S3 bucket:
+
+```
+terraform
+locals {
+  s3_origin_id = var.s3_origin_id
+}
+
+resource "aws_cloudfront_origin_access_control" "my_origin" {
+  name                              = local.s3_origin_id
+  description                       = "Origin access control"
+  origin_access_control_origin_type = "s3"
+  signing_behavior                  = "always"
+  signing_protocol                  = "sigv4"
+}
+```
+
+The `aws_cloudfront_origin_access_control` resource defines access control settings for the S3 bucket as an origin. We set the `signing_behavior` and `signing_protocol` to "always" and "sigv4," respectively, to enforce the use of AWS Signature Version 4 for all requests made to the CloudFront distribution.
+
+### Step 3: Creating CloudFront Distribution
+
+Now, we create the CloudFront distribution that will cache and serve the media files stored in the S3 bucket:
+
+```terraform
+data "aws_cloudfront_cache_policy" "cache-optimized" {
+  name = "Managed-CachingOptimized"
+}
+
+resource "aws_cloudfront_distribution" "s3_distribution" {
+  origin {
+    domain_name              = aws_s3_bucket.wordpress_files_bucket.bucket_regional_domain_name
+    origin_access_control_id = aws_cloudfront_origin_access_control.my_origin.id
+    origin_id                = local.s3_origin_id
+  }
+
+  enabled         = true
+  is_ipv6_enabled = true
+  comment         = "my-cloudfront"
+
+  default_cache_behavior {
+    cache_policy_id        = data.aws_cloudfront_cache_policy.cache-optimized.id
+    allowed_methods        = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
+    cached_methods         = ["GET", "HEAD"]
+    target_origin_id       = local.s3_origin_id
+    viewer_protocol_policy = "allow-all"
+    min_ttl                = 0
+    default_ttl            = 3600
+    max_ttl                = 86400
+  }
+
+  price_class = "PriceClass_All"
+
+  restrictions {
+    geo_restriction {
+      restriction_type = "none"
+      locations        = []
+    }
+  }
+
+  viewer_certificate {
+    cloudfront_default_certificate = true
+  }
+}
+```
+
+In this resource, we define the CloudFront distribution and specify the S3 bucket as the origin to be associated with the distribution. The `cache_policy_id` refers to the managed caching policy named "Managed-CachingOptimized," which optimizes cache behavior for better performance.
+
+We also set the `default_cache_behavior` to cache the allowed HTTP methods and define caching TTLs (time-to-live) for the assets. The `viewer_protocol_policy` is set to "allow-all" to allow both HTTP and HTTPS access.
+
+Additionally, we specify the CloudFront distribution to use the default SSL/TLS certificate provided by AWS (`cloudfront_default_certificate = true`) for secure connections.
+
+#### Step 4: Configuring S3 Bucket Policy for CloudFront Access
+
+Finally, we create an S3 bucket policy to allow CloudFront access to the bucket:
+
+```
+terraform
+data "aws_iam_policy_document" "s3_policy" {
+  statement {
+    sid       = "AllowCloudFrontServicePrincipal"
+    actions   = ["s3:GetObject"]
+    resources = ["${aws_s3_bucket.wordpress_files_bucket.arn}/*"]
+    condition {
+      test     = "StringEquals"
+      variable = "AWS:SourceArn"
+      values   = ["${aws_cloudfront_distribution.s3_distribution.arn}"]
+    }
+    principals {
+      type        = "Service"
+      identifiers = ["cloudfront.amazonaws.com"]
+    }
+  }
+}
+
+resource "aws_s3_bucket_policy" "mybucket" {
+  bucket = aws_s3_bucket.wordpress_files_bucket.id
+  policy = data.aws_iam_policy_document.s3_policy.json
+}
+```
+
+In this step, we define an IAM policy document that allows CloudFront service principal (`cloudfront.amazonaws.com`) to access the S3 bucket's objects. The policy uses the `aws_s3_bucket.wordpress_files_bucket.arn` and the `aws_cloudfront_distribution.s3_distribution.arn` as resources to specify the S3 bucket and CloudFront distribution as the allowed sources.
+
+Finally, we apply the defined S3 bucket policy using the `aws_s3_bucket_policy` resource.
+
+With these configurations, the S3 bucket is ready to store WordPress media files, and the CloudFront distribution is set up to cache and serve these assets, providing faster and more reliable content delivery globally.
 
 
 
-### Step 7: Deployment
+
+## Step 7: Deployment
 
 To start the deployment process, we need to initialize Terraform in our project directory. This step ensures that Terraform downloads the necessary providers and sets up the backend configuration. Run the following command in your terminal:
 

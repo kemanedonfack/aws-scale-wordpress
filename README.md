@@ -456,7 +456,7 @@ In this section, we will configure the `wp-config.php` file of our WordPress ins
 
 ### Step 1: Connect to EC2 Instance via SSH
 
-To configure the `wp-config.php` file, we will first connect to one of the EC2 instances created by the Auto Scaling Group using SSH. After having deploy your infrastructure you'll see `aws_access_key.pem` in your terraform directory you'll use it as private key for the ssh connection
+To configure the `wp-config.php` file, we will first connect to one of the EC2 instances created by the Auto Scaling Group using SSH. After having deployed your infrastructure you'll see `aws_access_key.pem` in your terraform directory you'll use it as private key for the SSH connection
 
 ![private-key](./images/private-key.png)
 
@@ -468,7 +468,7 @@ ssh -i /path/to/aws_access_key.pem ec2-user@<Public-IP-of-EC2>
 
 ### Step 2: Edit wp-config.php
 
-Once connected to the EC2 instance, navigate to the WordPress installation directory and edit the `wp-config.php` file:
+Once connected to the EC2 instance, navigate to the WordPress installation directory and edit the `wp-config.php` file
 
 ```bash
 cd /var/www/html
@@ -480,7 +480,7 @@ cd /var/www/html
 sudo vi wp-config.php
 ```
 
-Inside the `wp-config.php` file, locate the database connection settings and add the following lines after the `DB_COLLATE` paste the below then save and exit
+Inside the `wp-config.php` file, locate the database connection settings, and add the following lines after the `DB_COLLATE` definition
 
 ```php
 define( 'AS3CF_SETTINGS', serialize( array(
@@ -488,6 +488,7 @@ define( 'AS3CF_SETTINGS', serialize( array(
     'use-server-roles' => true,
 ) ) );
 ```
+Save the changes and exit the file.
 
 ![wordpress-directory.png](./images/configure-role.png)
 
@@ -517,27 +518,25 @@ Under **Bucket** select **Use Existing Bucket > Browse existing buckets** then s
 
 ![select-s3](./images/select-s3.png)
 
-On security tab leave all as default then click on **Keep Bucket Security As Is**
+On the security tab, leave all settings as default, then click on **Keep Bucket Security As Is**
 
 ![s3-wordpress](./images/s3-wordpress.png)
 
-Go on **Delivery Setting** to configure CloudFront
+Go to **Delivery Setting** to configure CloudFront
 
-Click on **Edit** then on choose **Amazon CloudFront** and save
+Click on **Edit** then on choose **Amazon CloudFront**, then save
 
 ![delivery-provider](./images/delivery-provider.png)
 
-Click on Use Custom Domain Name (CNAME) then go on your CloudFront distribution 
+Click on Use **Custom Domain Name (CNAME)** and go to your CloudFront distribution to copy the **Distribution Domain Name** and paste it into the Use Custom Domain Name (CNAME) field.
 
 ![delivery-provider](./images/cloudfront-distribution.png)
-
-Copy Distribution domain name and paste on Use Custom Domain Name (CNAME) field
 
 ![delivery-provider](./images/config-cname.png)
 
 ![url](./images/url.png)
 
-Then save your configuration
+Save your configuration.
 
 ![cloudfront](./images/cloudfront.png)
 
@@ -545,15 +544,15 @@ The **WP Offload Media Lite for Amazon S3** plugin is now configured to use your
 
 ## Demo
 
-For the demo go on  **Media > Add New** and upload a new file then look at the file details
+For the demo go to  **Media > Add New** and upload a new file then look at the file details
 
 ![upload-file](./images/upload-file.png)
 
-Go your s3 bucket and you'll also see your file
+Go to your **S3 bucket** and you'll also see your file
 
 ![upload-file](./images/upload-file2.png)
 
-To start the deployment process, we need to initialize Terraform in our project directory. This step ensures that Terraform downloads the necessary providers and sets up the backend configuration. Run the following command in your terminal:
+Congratulations! Your WordPress website is now successfully configured to use IAM role for secure S3 access and WP Offload Media Lite for Amazon S3 plugin to store and serve media files from S3 bucket via CloudFront, enhancing the scalability and performance of your website.
 
 The complete source code of the project is available on [GitHub]().
 

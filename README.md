@@ -4,6 +4,8 @@
 
 In today's article, we will explore the **scalability** possibilities of deploying WordPress on AWS. Building upon our previous article on **deploying WordPress on a 2-Tier AWS architecture with Terraform**, we will focus on utilizing the `Auto Scaling Group (ASG)` feature, along with leveraging `Amazon S3` for media storage and `CloudFront` for **caching**. These enhancements will enable us to scale our WordPress deployment effectively and handle increasing traffic demands. So let's dive in!
 
+![architecture diagram](./images/Deploy%20WordPress%20on%20a%202-Tier%20AWS%20Architecture%20with%20Terraform.png)
+
 If you haven't read the previous article, **Deploying WordPress on a 2-Tier AWS Architecture with Terraform**, we highly recommend checking it out first. It provides a comprehensive guide on setting up the initial 2-Tier architecture, which forms the foundation for this scalability enhancement.
 [**Deploying WordPress on a 2-Tier AWS Architecture with Terraform**](https://blog.numericaideas.com/deploy-wordpress-2-tier-aws-architecture-with-terraform)
 

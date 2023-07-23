@@ -35,7 +35,7 @@ resource "aws_launch_template" "instances_configuration" {
   key_name               = aws_key_pair.aws_ec2_access_key.id
   instance_type          = var.instance_type
   vpc_security_group_ids = [aws_security_group.production-instance-sg.id]
-  
+
   iam_instance_profile {
     name = aws_iam_instance_profile.ec2_wordpress_instance_profile.name
   }
@@ -62,7 +62,6 @@ resource "aws_autoscaling_group" "asg" {
   health_check_grace_period = 150
   health_check_type         = "ELB"
   vpc_zone_identifier       = [aws_subnet.ec2_1_public_subnet.id, aws_subnet.ec2_2_public_subnet.id]
-
   launch_template {
     id      = aws_launch_template.instances_configuration.id
     version = "$Latest"
@@ -89,13 +88,19 @@ resource "aws_autoscaling_policy" "avg_cpu_policy_greater" {
   name                   = "avg-cpu-policy-greater"
   policy_type            = "TargetTrackingScaling"
   autoscaling_group_name = aws_autoscaling_group.asg.id
-
+  # CPU Utilization is above 50
   target_tracking_configuration {
     predefined_metric_specification {
       predefined_metric_type = "ASGAverageCPUUtilization"
     }
     target_value = 50.0
   }
+
+}
+
+resource "aws_autoscaling_attachment" "asg_attachment" {
+  autoscaling_group_name = aws_autoscaling_group.asg.id
+  lb_target_group_arn    = aws_lb_target_group.alb_target_group.arn
 }
 ```
 
@@ -222,20 +227,13 @@ First, we define an **IAM policy** resource to specify the permissions required 
 
 ```terraform
 resource "aws_iam_policy" "ec2_wordpress_policy" {
-  name   = "ec2_wordpress_policy"
+  name = "ec2_wordpress_policy"
   policy = jsonencode({
-    Version   = "2012-10-17"
+    Version = "2012-10-17"
     Statement = [
       {
-        Effect   = "Allow"
-        Action   = [
-          "s3:Get*",
-          "s3:List*",
-          "s3-object-lambda:Get*",
-          "s3-object-lambda:List*",
-          "s3:GetObject",
-          "s3:PutObject"
-        ]
+        Effect = "Allow"
+        Action = "*"
         Resource = "*"
       }
     ]

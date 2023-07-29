@@ -12,12 +12,12 @@ resource "aws_iam_policy" "ec2_wordpress_policy" {
       {
         Effect   = "Allow"
         Action   = "s3:*"
-        Resource = "arn:aws:s3:::my-s3-wordpress-bucket"
+        Resource = "arn:aws:s3:::${var.bucket_name}"
       },
       {
         Effect   = "Allow"
         Action   = "s3:*"
-        Resource = "arn:aws:s3:::my-s3-wordpress-bucket/*"
+        Resource = "arn:aws:s3:::${var.bucket_name}/*"
       },
     ]
   })
